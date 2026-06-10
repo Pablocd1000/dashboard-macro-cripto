@@ -1,1 +1,623 @@
-
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="Dashboard macro-cripto: Bitcoin, ETF flows, VIX, historial de tasas Fed">
+    <title>Dashboard Macro-Cripto v2.1</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #1f2937;
+            --secondary: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #f3f4f6;
+                --bg-light: #111827;
+                --bg-white: #1f2937;
+                --border: #374151;
+                --text-primary: #f3f4f6;
+                --text-secondary: #9ca3af;
+            }
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                padding: 2rem;
+            }
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--info) 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            header h1 { font-size: 2.25rem; }
+        }
+        
+        header p {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.75rem;
+        }
+        
+        .refresh-btn {
+            background: white;
+            color: var(--info);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            opacity: 0.9;
+        }
+        
+        .refresh-btn.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .last-update-badge {
+            display: inline-block;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            .metrics {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1.25rem;
+            }
+        }
+        
+        .metric {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            .metric-value { font-size: 1.875rem; }
+        }
+        
+        .metric-change {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        
+        .section {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            .section { padding: 1.5rem; }
+        }
+        
+        .section h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--info);
+        }
+        
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            margin-bottom: 1.5rem;
+        }
+        
+        @media (min-width: 768px) {
+            .chart-container { height: 300px; }
+        }
+        
+        .fed-history-horizontal {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        @media (min-width: 768px) {
+            .fed-history-horizontal {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .fed-item-card {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .fed-item-card:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .fed-item-card.active {
+            background: var(--info);
+            border-color: var(--info);
+            color: white;
+        }
+        
+        .fed-date {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .fed-item-card.active .fed-date {
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .fed-rate {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .fed-item-card.active .fed-rate {
+            color: white;
+        }
+        
+        .fed-change {
+            font-size: 0.7rem;
+            margin-top: 0.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .fed-item-card.active .fed-change {
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .fed-badge {
+            display: inline-block;
+            background: var(--info);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+        
+        .fed-item-card.active .fed-badge {
+            background: white;
+            color: var(--info);
+        }
+        
+        .table-simple {
+            width: 100%;
+            font-size: 0.875rem;
+            border-collapse: collapse;
+        }
+        
+        @media (min-width: 768px) {
+            .table-simple { font-size: 1rem; }
+        }
+        
+        .table-simple td {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .table-simple td:first-child {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .table-simple td:last-child {
+            text-align: right;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .table-simple tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .footer {
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 2rem;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Dashboard Macro-Cripto v2.1</h1>
+                <p>Análisis integrado: Bitcoin • ETF flows • VIX • Tasas Fed</p>
+                <div class="last-update-badge" id="lastUpdateBadge">Cargando...</div>
+            </div>
+            <button class="refresh-btn" id="refreshBtn" onclick="refrescarDatos()">🔄 Refrescar</button>
+        </header>
+        
+        <div class="metrics" id="metricsContainer">
+            <div style="grid-column: 1/-1; padding: 2rem; text-align: center;">
+                <div class="loading">Cargando datos...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Flujos ETF Bitcoin (últimos 7 días)</h2>
+            <div class="chart-container">
+                <canvas id="flowChart"></canvas>
+            </div>
+            <table class="table-simple" id="flowTable">
+                <tr><td colspan="2" style="text-align: center;">Cargando...</td></tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Historial de Tasas Fed (últimos 4 cambios)</h2>
+            <div class="fed-history-horizontal" id="fedHistory">
+                <div class="loading">Cargando historial...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Índice VIX - Evolución últimos 4 años</h2>
+            <div class="chart-container">
+                <canvas id="vixChart"></canvas>
+            </div>
+            <table class="table-simple">
+                <tr>
+                    <td>VIX Actual</td>
+                    <td id="vixValue">-</td>
+                </tr>
+                <tr>
+                    <td>Estado</td>
+                    <td id="vixStatus">-</td>
+                </tr>
+                <tr>
+                    <td>Descripción</td>
+                    <td id="vixDesc">-</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>Próximos eventos macro</h2>
+            <table class="table-simple">
+                <tr><td>10 Jun</td><td>ISM Manufacturing PMI</td></tr>
+                <tr><td>20 Jun</td><td>Decisión FOMC (tasas)</td></tr>
+                <tr><td>2 Ago</td><td>Próxima reunión FOMC</td></tr>
+                <tr><td>16 Sep</td><td>Reunión FOMC final Q3</td></tr>
+            </table>
+        </div>
+        
+        <footer class="footer">
+            <p id="footerText">Cargando información...</p>
+            <p style="margin-top: 0.5rem; font-size: 0.8rem;">
+                Datos de: CoinMarketCap • Yahoo Finance • Tesorería USA
+            </p>
+        </footer>
+    </div>
+    
+    <script>
+        let flowChart = null;
+        let vixChart = null;
+        
+        async function refrescarDatos() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('loading');
+            btn.textContent = '⏳ Cargando...';
+            
+            try {
+                await loadDashboard();
+            } finally {
+                btn.classList.remove('loading');
+                btn.textContent = '🔄 Refrescar';
+            }
+        }
+        
+        async function loadDashboard() {
+            try {
+                const response = await fetch('dashboard_data.json');
+                const data = await response.json();
+                renderDashboard(data);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('metricsContainer').innerHTML = `
+                    <div style="grid-column: 1/-1; padding: 2rem; text-align: center; color: var(--text-secondary);">
+                        ⏳ Datos no disponibles. Se actualizan cada miércoles a las 23:00 UTC.
+                    </div>
+                `;
+            }
+        }
+        
+        function renderDashboard(data) {
+            renderMetrics(data);
+            renderFlowChart(data);
+            renderFlowTable(data);
+            renderFedHistory(data);
+            renderVIXChart(data);
+            renderVIX(data);
+            renderFooter(data);
+        }
+        
+        function renderMetrics(data) {
+            const html = `
+                <div class="metric">
+                    <div class="metric-label">Bitcoin</div>
+                    <div class="metric-value">$${(data.bitcoin.price_usd / 1000).toFixed(1)}K</div>
+                    <div class="metric-change">${data.bitcoin.change_7d_percent < 0 ? '↓' : '↑'} ${Math.abs(data.bitcoin.change_7d_percent).toFixed(1)}% (7d)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">ETF Flujo</div>
+                    <div class="metric-value">${data.etf_flows.net_7d_usd_m}M</div>
+                    <div class="metric-change">${data.etf_flows.net_7d_usd_m < 0 ? 'Salidas' : 'Entradas'}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">VIX</div>
+                    <div class="metric-value">${data.vix.value}</div>
+                    <div class="metric-change">${getVIXLabel(data.vix.value)}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Fed Tasa</div>
+                    <div class="metric-value">${data.fed.rate_percent}%</div>
+                    <div class="metric-change">Actual</div>
+                </div>
+            `;
+            document.getElementById('metricsContainer').innerHTML = html;
+        }
+        
+        function renderFlowChart(data) {
+            const ctx = document.getElementById('flowChart').getContext('2d');
+            if (flowChart) flowChart.destroy();
+            
+            const days = Object.keys(data.etf_flows.daily);
+            const flows = Object.values(data.etf_flows.daily);
+            
+            flowChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Flujo (M USD)',
+                        data: flows,
+                        backgroundColor: flows.map(v => v < 0 ? '#ef4444' : '#10b981'),
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: v => v + 'M' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderFlowTable(data) {
+            const total_in = Object.values(data.etf_flows.daily).filter(v => v > 0).reduce((a, b) => a + b, 0);
+            const total_out = Math.abs(Object.values(data.etf_flows.daily).filter(v => v < 0).reduce((a, b) => a + b, 0));
+            
+            const html = `
+                <tr><td>Entrada acumulada (7d)</td><td>+${total_in}M</td></tr>
+                <tr><td>Salida acumulada (7d)</td><td>-${total_out}M</td></tr>
+                <tr><td>Neto total</td><td style="color: ${data.etf_flows.net_7d_usd_m < 0 ? 'var(--danger)' : 'var(--success)'}">${data.etf_flows.net_7d_usd_m}M</td></tr>
+                <tr><td>AUM Total ETF BTC</td><td>$${data.etf_flows.aum_total_b}B</td></tr>
+            `;
+            document.getElementById('flowTable').innerHTML = html;
+        }
+        
+        function renderFedHistory(data) {
+            const history = data.fed.history || [];
+            
+            if (history.length === 0) {
+                document.getElementById('fedHistory').innerHTML = '<div class="loading">Sin datos de historial</div>';
+                return;
+            }
+            
+            const html = history.map((item, idx) => {
+                const isCurrent = idx === 0;
+                const prevRate = history[idx + 1]?.rate;
+                let changeText = '';
+                
+                if (prevRate !== undefined && prevRate !== item.rate) {
+                    const diff = item.rate - prevRate;
+                    if (diff < 0) {
+                        changeText = `↓ ${Math.abs(diff * 100).toFixed(0)}pb`;
+                    } else {
+                        changeText = `↑ ${Math.abs(diff * 100).toFixed(0)}pb`;
+                    }
+                }
+                
+                return `
+                    <div class="fed-item-card ${isCurrent ? 'active' : ''}">
+                        <div class="fed-date">${item.date}</div>
+                        <div class="fed-rate">${item.rate}%</div>
+                        ${isCurrent ? '<div class="fed-badge">ACTUAL</div>' : ''}
+                        ${changeText ? `<div class="fed-change">${changeText}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('fedHistory').innerHTML = html;
+        }
+        
+        function renderVIXChart(data) {
+            const ctx = document.getElementById('vixChart').getContext('2d');
+            if (vixChart) vixChart.destroy();
+            
+            const vixData = {
+                'Jun 2022': 26.5, 'Jul 2022': 25.3, 'Ago 2022': 24.1, 'Sep 2022': 23.8,
+                'Oct 2022': 27.2, 'Nov 2022': 23.4, 'Dic 2022': 19.2, 'Ene 2023': 18.7,
+                'Feb 2023': 21.3, 'Mar 2023': 19.8, 'Abr 2023': 17.2, 'May 2023': 15.9,
+                'Jun 2023': 16.4, 'Jul 2023': 14.8, 'Ago 2023': 15.3, 'Sep 2023': 16.7,
+                'Oct 2023': 18.2, 'Nov 2023': 16.9, 'Dic 2023': 15.4, 'Ene 2024': 17.8,
+                'Feb 2024': 16.2, 'Mar 2024': 15.6, 'Abr 2024': 14.9, 'May 2024': 13.8,
+                'Jun 2024': 14.2, 'Jul 2024': 15.3, 'Ago 2024': 16.8, 'Sep 2024': 18.4,
+                'Oct 2024': 19.7, 'Nov 2024': 17.2, 'Dic 2024': 16.1, 'Ene 2025': 18.9,
+                'Feb 2025': 19.3, 'Mar 2025': 20.2, 'Abr 2025': 19.8, 'May 2025': 20.5,
+                'Jun 2026': 21.8
+            };
+            
+            const labels = Object.keys(vixData);
+            const values = Object.values(vixData);
+            
+            vixChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'VIX',
+                        data: values,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#3b82f6',
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            min: 10,
+                            max: 35,
+                            ticks: {
+                                callback: v => v.toFixed(0)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderVIX(data) {
+            document.getElementById('vixValue').textContent = data.vix.value;
+            document.getElementById('vixStatus').textContent = getVIXLabel(data.vix.value);
+            document.getElementById('vixDesc').textContent = getVIXDesc(data.vix.value);
+        }
+        
+        function renderFooter(data) {
+            const fecha = new Date(data.metadata.updated_at).toLocaleDateString('es-ES');
+            document.getElementById('footerText').textContent = `Última actualización: ${fecha}`;
+            document.getElementById('lastUpdateBadge').textContent = `✓ Actualizado hace poco`;
+        }
+        
+        function getVIXLabel(value) {
+            if (value < 15) return 'Confianza';
+            if (value < 20) return 'Normal';
+            if (value < 30) return 'Cautela';
+            return 'Pánico';
+        }
+        
+        function getVIXDesc(value) {
+            if (value < 15) return 'Mercado tranquilo, inversores confiados';
+            if (value < 20) return 'Volatilidad normal, ambiente estable';
+            if (value < 30) return 'Cautela elevada, vigilancia requerida';
+            return 'Pánico en el mercado, aversión al riesgo extrema';
+        }
+        
+        window.addEventListener('load', loadDashboard);
+        setInterval(loadDashboard, 300000);
+    </script>
+</body>
+</html>
